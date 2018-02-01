@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <title>测试跨天</title>
+</head>
+<body>
+<h4>
+    @if{context.get("result")}
+    即将在@{context.get("seconds")}秒执行跨天
+    @else{}
+    请稍等@{context.get("seconds")}秒后再刷新
+    @end{}
+</h4>
+<h5>
+    <a href="/">返回</a>
+</h5>
+</body>
+</html>
