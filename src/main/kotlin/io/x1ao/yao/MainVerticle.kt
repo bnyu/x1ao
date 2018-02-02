@@ -2,6 +2,8 @@ package io.x1ao.yao
 
 import io.vertx.core.AbstractVerticle
 import io.vertx.core.http.HttpHeaders
+import io.vertx.core.json.JsonObject
+import io.vertx.ext.mongo.MongoClient
 import io.vertx.ext.web.Router
 import io.vertx.ext.web.RoutingContext
 import io.vertx.ext.web.handler.FaviconHandler
@@ -12,6 +14,10 @@ class MainVerticle : AbstractVerticle() {
     override fun start() {
         val router = Router.router(vertx)
         val engine = MVELTemplateEngine.create().setExtension(".html")
+        val client = MongoClient.createShared(vertx, JsonObject())
+
+        var index = 100 //temp
+        fun incIndex() = ++index
 
         fun templateHandler(templateFileName: String) = { ctx: RoutingContext ->
             engine.render(ctx, "templates/", templateFileName) { res ->
@@ -22,25 +28,61 @@ class MainVerticle : AbstractVerticle() {
             }
         }
 
-        router.route("/midnight").handler { ctx ->
-            val time = LocalTime.now()
-            var seconds = time.second
-            val result = if (time.hour == 0 && time.minute == 0) false else {
-                if (time.hour != 23 || time.minute != 59 || seconds < 40) {
-                    seconds = 40
-                    Runtime.getRuntime().exec("cmd /c time 23:59:$seconds")
-                    println("time changed")
+        router.get("/article/:articleId").handler { ctx ->
+            val articleId = ctx.request().getParam("articleId")
+            val query = JsonObject().put("articleId", articleId)
+            val fields = JsonObject()
+            client.findOne("articles", query, fields) { res ->
+                var found = false
+                if (res.succeeded()) {
+                    val article: JsonObject? = res.result()
+                    if (article != null && !article.isEmpty) {
+                        ctx.put("title", article.getString("title")).put("content", article.getString("content"))
+                        found = true
+                    }
                 }
-                true
+                if (found)
+                    templateHandler("article").invoke(ctx)
+                else
+                    ctx.fail(404)
             }
-            ctx.put("result", result)
-            ctx.put("seconds", 60 - seconds)
-            templateHandler("midnight").invoke(ctx)
+        }
+
+        router.get("/post_article").handler(templateHandler("post_article"))
+
+        router.post("/post_article").handler { ctx ->
+            val request = ctx.request().setExpectMultipart(true)
+            request.endHandler {
+                val form = request.formAttributes()
+                if (!form.isEmpty) {
+                    val title = form.get("title") ?: ""
+                    val content = form.get("content") ?: ""
+                    if (title.isNotEmpty() && content.isNotEmpty()) {
+                        val document = JsonObject().put("articleId", "${incIndex()}").put("title", title).put("content", content)
+                        client.save("articles", document) { res ->
+                            if (res.succeeded())
+                                templateHandler("article").invoke(ctx.put("title", title).put("content", content))
+                             else ctx.fail(404)
+                        }
+                    } else ctx.fail(400)
+                } else ctx.fail(400)
+            }
+        }
+
+        router.get("/articles").handler { ctx ->
+            val query = JsonObject()
+            client.find("articles", query) { res ->
+                if (res.succeeded()) {
+                    ctx.put("articles", res.result())
+                    templateHandler("articles").invoke(ctx)
+                } else {
+                    ctx.fail(404)
+                }
+            }
         }
 
         router.route("/favicon.ico").handler(FaviconHandler.create("resource/favicon.ico"))
         router.route("/").handler(templateHandler("index"))
-        router.route("/*").handler(templateHandler("404"))
         vertx.createHttpServer().requestHandler(router::accept).listen(8080)
     }
 }
