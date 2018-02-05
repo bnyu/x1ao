@@ -8,7 +8,6 @@ import io.vertx.ext.web.Router
 import io.vertx.ext.web.RoutingContext
 import io.vertx.ext.web.handler.FaviconHandler
 import io.vertx.ext.web.templ.MVELTemplateEngine
-import java.time.LocalTime
 
 class MainVerticle : AbstractVerticle() {
     override fun start() {
@@ -19,12 +18,14 @@ class MainVerticle : AbstractVerticle() {
         var index = 100 //temp
         fun incIndex() = ++index
 
-        fun templateHandler(templateFileName: String) = { ctx: RoutingContext ->
-            engine.render(ctx, "templates/", templateFileName) { res ->
-                if (res.succeeded())
-                    ctx.response().putHeader(HttpHeaders.CONTENT_TYPE, "text/html").end(res.result())
-                else
-                    ctx.fail(res.cause())
+        val templateHandler = { templateFileName: String ->
+            { ctx: RoutingContext ->
+                engine.render(ctx, "templates/", templateFileName) { res ->
+                    if (res.succeeded())
+                        ctx.response().putHeader(HttpHeaders.CONTENT_TYPE, "text/html").end(res.result())
+                    else
+                        ctx.fail(res.cause())
+                }
             }
         }
 
@@ -42,7 +43,7 @@ class MainVerticle : AbstractVerticle() {
                     }
                 }
                 if (found)
-                    templateHandler("article").invoke(ctx)
+                    templateHandler("article")(ctx)
                 else
                     ctx.fail(404)
             }
@@ -61,8 +62,8 @@ class MainVerticle : AbstractVerticle() {
                         val document = JsonObject().put("articleId", "${incIndex()}").put("title", title).put("content", content)
                         client.save("articles", document) { res ->
                             if (res.succeeded())
-                                templateHandler("article").invoke(ctx.put("title", title).put("content", content))
-                             else ctx.fail(404)
+                                templateHandler("article")(ctx.put("title", title).put("content", content))
+                            else ctx.fail(404)
                         }
                     } else ctx.fail(400)
                 } else ctx.fail(400)
@@ -74,7 +75,7 @@ class MainVerticle : AbstractVerticle() {
             client.find("articles", query) { res ->
                 if (res.succeeded()) {
                     ctx.put("articles", res.result())
-                    templateHandler("articles").invoke(ctx)
+                    templateHandler("articles")(ctx)
                 } else {
                     ctx.fail(404)
                 }
@@ -84,6 +85,7 @@ class MainVerticle : AbstractVerticle() {
         router.route("/favicon.ico").handler(FaviconHandler.create("resource/favicon.ico"))
         router.route("/").handler(templateHandler("index"))
         vertx.createHttpServer().requestHandler(router::accept).listen(8080)
+        vertx.deployVerticle(GMVerticle::class.java.name)
     }
 }
 
