@@ -43,32 +43,28 @@ class GMVerticle : AbstractVerticle() {
         router.get("/reload_json/").handler(templateHandler("reload_json"))
 
         router.post("/reload_json/").handler { ctx ->
-            val handler = templateHandler("/reload_json")
+            val handler = templateHandler("reload_json")
             ctx.request().setExpectMultipart(true).uploadHandler { upload ->
-                var result = 0
                 if (upload != null) {
                     val fileName = upload.filename()
                     val file = File(gameDataPath + fileName)
-                    if (file.exists()) {
-                        try {
-                            file.delete()
-                            file.createNewFile()
-                            upload.streamToFileSystem(fileName)
-                            result = 2
-                        } catch (e: Exception) {
-                            result = -2
-                            e.printStackTrace()
+                    if (fileName != null && fileName.isNotEmpty() && file.exists()) {
+                        println("$fileName changed by ${ctx.request().remoteAddress()}")
+                        file.delete()
+                        file.createNewFile()
+                        upload.handler { buffer ->
+                            file.appendBytes(buffer.bytes)
                         }
-                    } else
-                        result = -1
-                }
-                handler(ctx.put("result", result))
+                        upload.endHandler {
+                            handler(ctx.put("result", 2))
+                        }
+                    } else handler(ctx.put("result", -1))
+                } else handler(ctx.put("result", 0))
             }
-//            if (ctx.data().isEmpty())
-//                handler(ctx.put("result", 1))
         }
 
         router.route("/gm").handler(templateHandler("gm"))
+        router.route("/*").handler(templateHandler("gm"))
         router.route("/favicon.ico").handler(FaviconHandler.create("resource/favicon.ico"))
         vertx.createHttpServer().requestHandler(router::accept).listen(8090)
     }
