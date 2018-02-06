@@ -6,7 +6,7 @@
 </head>
 <body>
 @if{context.get("result") == null || context.get("result") == 0}
-<form action="/reload_json" method="post" enctype="multipart/form-data">
+<form action="reload_json" method="post" enctype="multipart/form-data">
     <p>Json: <input type="file" name="json"></p>
     <input type="submit" value="上传"/>
 </form>
@@ -14,7 +14,7 @@
 正在上传，请稍后...
 @else{context.get("result") == 2}
 上传成功，请在游戏中reload更新<br>
-<a href="/reload_json">继续上传</a>
+<a href="reload_json">继续上传</a>
 @else{context.get("result") < 0}
 上传失败！！
 @end{}

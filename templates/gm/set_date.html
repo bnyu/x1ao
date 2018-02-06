@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>调整时间</title>
+</head>
+<body>
+当前时间：@{context.get("year")}年@{context.get("month")}月@{context.get("day")}日 @{context.get("hour")}时@{context.get("minute")}分
+<br>服务器不允许往回调时间！！
+<form action="/gm/set_date" method="post" enctype="multipart/form-data">
+    <input type="date" title="设置日期" value="2018-01-01" name="date"/>
+    <input type="submit" value="确定"/>
+</form>
+<br>
+<form action="/gm/set_date" method="post" enctype="multipart/form-data">
+    <input type="time" title="设置时间" value="12:00" name="time"/>
+    <input type="submit" value="确定"/>
+</form>
+</body>
+</html>

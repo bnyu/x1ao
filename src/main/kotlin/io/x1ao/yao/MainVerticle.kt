@@ -15,7 +15,14 @@ class MainVerticle : AbstractVerticle() {
         val engine = MVELTemplateEngine.create().setExtension(".html")
         val client = MongoClient.createShared(vertx, JsonObject())
 
-        var index = 100 //temp
+        var index = -1L
+        client.count("articles", JsonObject()) { res ->
+            if (res.succeeded())
+                index = res.result() + 1000
+            else
+                res.cause().printStackTrace()
+        }
+
         fun incIndex() = ++index
 
         val templateHandler = { templateFileName: String ->
@@ -52,6 +59,7 @@ class MainVerticle : AbstractVerticle() {
         router.get("/post_article").handler(templateHandler("post_article"))
 
         router.post("/post_article").handler { ctx ->
+            if (index < 0) return@handler
             val request = ctx.request().setExpectMultipart(true)
             request.endHandler {
                 val form = request.formAttributes()
