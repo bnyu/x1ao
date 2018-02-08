@@ -5,10 +5,22 @@
     <title>测试</title>
 </head>
 <body>
+@if{context.get("t")}
 <a href="/gm/midnight">准备跨天</a>
 <br><br>
 <a href="/gm/set_date">调整时间</a>
 <br><br>
+@else{}
+@end{}
+@if{context.get("d")}
 <a href="/gm/reload_json">替换数据</a>
+<br><br>
+@else{}
+@end{}
+@if{context.get("r")}
+<a href="/gm/restart">重新启动</a>
+<br><br>
+@else{}
+@end{}
 </body>
 </html>

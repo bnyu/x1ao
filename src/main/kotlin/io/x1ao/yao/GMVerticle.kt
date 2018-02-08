@@ -7,16 +7,25 @@ import io.vertx.ext.web.Router
 import io.vertx.ext.web.RoutingContext
 import io.vertx.ext.web.handler.FaviconHandler
 import io.vertx.ext.web.templ.MVELTemplateEngine
-import java.io.File
+import java.io.*
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.LocalTime
+import java.util.*
+
 
 class GMVerticle : AbstractVerticle() {
     override fun start() {
         val router = Router.router(vertx)
         val engine = MVELTemplateEngine.create().setExtension(".html")
-        val gameDataPath = "e:/cdcq2_svr_gameserver_1305/gamedata/game-data/"
+        context.put("running", false)
+        val config = BufferedInputStream(FileInputStream("config.properties"))
+        val prop = Properties()
+        prop.load(config)
+        val timeModifiable = prop.getProperty("time_modifiable") == "true"
+        val gameDataPath = prop.getProperty("game_data") ?: ""
+        val gameJarPath = prop.getProperty("game_jar") ?: ""
+        config.close()
 
         fun templateHandler(templateFileName: String) = { ctx: RoutingContext ->
             engine.render(ctx, "templates/gm/", templateFileName) { res ->
@@ -27,7 +36,7 @@ class GMVerticle : AbstractVerticle() {
             }
         }
 
-        router.route("/gm/midnight").handler { ctx ->
+        val timeRoute0 = router.route("/gm/midnight").handler { ctx ->
             val time = LocalTime.now()
             var seconds = time.second
             val result = if (time.hour == 0 && time.minute == 0) false else {
@@ -43,15 +52,14 @@ class GMVerticle : AbstractVerticle() {
             templateHandler("midnight")(ctx)
         }
 
-        router.get("/gm/set_date").handler { ctx ->
+        val timeRoute1 = router.get("/gm/set_date").handler { ctx ->
             val dateTime = LocalDateTime.now()
             ctx.put("year", dateTime.year).put("month", dateTime.monthValue).put("day", dateTime.dayOfMonth)
                 .put("hour", dateTime.hour).put("minute", dateTime.minute)
             templateHandler("set_date")(ctx)
         }
 
-
-        router.post("/gm/set_date").handler { ctx ->
+        val timeRoute2 = router.post("/gm/set_date").handler { ctx ->
             ctx.request().setExpectMultipart(true).endHandler {
                 val form = ctx.request().formAttributes()
                 if (form != null && !form.isEmpty) {
@@ -79,9 +87,9 @@ class GMVerticle : AbstractVerticle() {
             }
         }
 
-        router.get("/gm/reload_json/").handler(templateHandler("reload_json"))
+        val dataRoute0 = router.get("/gm/reload_json").handler(templateHandler("reload_json"))
 
-        router.post("/gm/reload_json/").handler { ctx ->
+        val dataRoute1 = router.post("/gm/reload_json").handler { ctx ->
             val handler = templateHandler("reload_json")
             ctx.request().setExpectMultipart(true).uploadHandler { upload ->
                 if (upload != null) {
@@ -102,9 +110,121 @@ class GMVerticle : AbstractVerticle() {
             }
         }
 
-        router.route("/gm").handler(templateHandler("index"))
+        val restartRoute0 = router.get("/gm/restart").handler { ctx ->
+            ctx.put("state", context.get("running"))
+            templateHandler("restart")(ctx)
+        }
+
+        val restartRoute1 = router.post("/gm/restart").handler { ctx ->
+            ctx.request().bodyHandler { buffer ->
+                val action = buffer.toString()
+                when (action) {
+                    "action=start\r\n" -> ctx.reroute("/gm/restart/start")
+                    "action=shutdown\r\n" -> ctx.reroute("/gm/restart/shutdown")
+                    else -> ctx.fail(400)
+                }
+            }
+        }
+
+        val restartRoute2 = router.route("/gm/restart/start").blockingHandler { ctx ->
+            if (!context.get<Boolean>("running")) {
+                context.put("running", true)
+                ctx.put("running", true)
+                Runtime.getRuntime().exec("cmd /c javaw -jar $gameJarPath")
+                ctx.put("result", "start")
+                templateHandler("restart")(ctx)
+                println("game start by ${ctx.request().remoteAddress()}")
+                try {
+                    Thread.sleep(10000)
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+            } else {
+                val cmd = Runtime.getRuntime().exec("cmd /c tasklist -fi \"imagename eq javaw.exe\"")
+                val reader = BufferedReader(InputStreamReader(cmd.inputStream, "gbk"))
+                try {
+                    val i = reader.readLines().size
+                    if (i <= 3) {
+                        context.put("running", false)
+                    }
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                } finally {
+                    reader.close()
+                }
+                ctx.reroute(HttpMethod.GET, "/gm/restart")
+            }
+        }
+
+        val restartRoute3 = router.route("/gm/restart/shutdown").blockingHandler { ctx ->
+            if (context.get<Boolean>("running")) {
+                context.put("running", false)
+
+                val cmd = Runtime.getRuntime().exec("cmd /c tasklist -fi \"imagename eq javaw.exe\"")
+                val reader = BufferedReader(InputStreamReader(cmd.inputStream, "gbk"))
+                try {
+                    var i = 0
+                    var line: String? = reader.readLine()
+                    while (line != null) {
+                        if (i >= 3 && line.isNotEmpty()) {
+                            val list = line.split(' ', ignoreCase = true).filter { it.isNotEmpty() }
+                            val pid = list[1].toInt()
+                            Runtime.getRuntime().exec("cmd /c taskkill /$pid -t -f")
+                            ctx.put("result", "shutdown")
+                        }
+                        line = reader.readLine()
+                        i += 1
+                    }
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                } finally {
+                    reader.close()
+                }
+
+                templateHandler("restart")(ctx)
+                println("game shutdown by ${ctx.request().remoteAddress()}")
+                try {
+                    Thread.sleep(10000)
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+            } else ctx.reroute(HttpMethod.GET, "/gm/restart")
+        }
+
         router.route("/favicon.ico").handler(FaviconHandler.create("resource/favicon.ico"))
-        vertx.createHttpServer().requestHandler(router::accept).listen(8090)
+
+        if (!timeModifiable) {
+            timeRoute0.disable()
+            timeRoute1.disable()
+            timeRoute2.disable()
+        }
+        val dataModifiable = if (gameDataPath.isEmpty() || !File(gameDataPath).exists()) {
+            dataRoute0.disable()
+            dataRoute1.disable()
+            false
+        } else true
+        val restartable = if (gameJarPath.isEmpty() || !File(gameJarPath).exists()) {
+            restartRoute0.disable()
+            restartRoute1.disable()
+            restartRoute2.disable()
+            restartRoute3.disable()
+            false
+        } else true
+
+        router.route("/gm").handler { ctx ->
+            ctx.put("t", timeModifiable).put("d", dataModifiable).put("r", restartable)
+            templateHandler("index")(ctx)
+        }
+
+        router.route("/*").handler { ctx -> ctx.reroute("/gm") }
+
+        if (timeModifiable || dataModifiable || restartable) {
+            vertx.createHttpServer().requestHandler(router::accept).listen(8090)
+            println("listen port: 8090")
+        } else {
+            vertx.undeploy(GMVerticle::class.java.name)
+            println("config.properties error")
+        }
     }
 }
 

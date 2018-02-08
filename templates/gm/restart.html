@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <title>重启服务器</title>
+</head>
+<body>
+@if{context.get("result") == "start"}
+服务器正在启动......请稍等
+@else{context.get("result") == "shutdown"}
+服务器强制停止成功！
+@else{context.get("state") == true}
+服务器启动中或运行中
+@else{}
+服务器未启动
+@end{}
+<br>
+<form action="/gm/restart" method="post" enctype="text/plain">
+    <p>强制停止<input type="radio" name="action" value="shutdown"/></p>
+    <p>正常启动<input type="radio" name="action" value="start"/></p>
+    <p>服务器启动需要数分钟，请勿频繁点击 <input type="submit" value="确定"/></p>
+</form>
+<br>
+<a href="/gm">返回</a>
+</body>
+</html>

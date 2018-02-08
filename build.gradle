@@ -11,7 +11,7 @@ repositories {
     jcenter()
 }
 
-version = '1.0.0-SNAPSHOT'
+version = '0.1.0'
 sourceCompatibility = '1.8'
 mainClassName = 'io.x1ao.yao.Main'
 
@@ -25,7 +25,6 @@ dependencies {
     compile "io.vertx:vertx-core:$vertxVersion"
     compile "io.vertx:vertx-web:$vertxVersion"
     compile "io.vertx:vertx-web-templ-mvel:$vertxVersion"
-    compile "io.vertx:vertx-mongo-client:$vertxVersion"
     compile "org.jetbrains.kotlin:kotlin-stdlib:$kotlinVersion"
     compile "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlinVersion"
 }
