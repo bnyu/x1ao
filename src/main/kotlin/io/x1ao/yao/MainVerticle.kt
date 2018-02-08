@@ -93,7 +93,6 @@ class MainVerticle : AbstractVerticle() {
         router.route("/favicon.ico").handler(FaviconHandler.create("resource/favicon.ico"))
         router.route("/").handler(templateHandler("index"))
         vertx.createHttpServer().requestHandler(router::accept).listen(8080)
-        vertx.deployVerticle(GMVerticle::class.java.name)
     }
 }
 
