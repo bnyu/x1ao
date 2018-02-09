@@ -11,7 +11,7 @@ repositories {
     jcenter()
 }
 
-version = '0.1.0'
+version = '0.1.1'
 sourceCompatibility = '1.8'
 mainClassName = 'io.x1ao.yao.Main'
 

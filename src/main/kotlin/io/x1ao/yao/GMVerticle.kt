@@ -23,8 +23,10 @@ class GMVerticle : AbstractVerticle() {
         val prop = Properties()
         prop.load(config)
         val timeModifiable = prop.getProperty("time_modifiable") == "true"
-        val gameDataPath = prop.getProperty("game_data") ?: ""
-        val gameJarPath = prop.getProperty("game_jar") ?: ""
+        val driverLetter = prop.getProperty("driver_letter") ?: "c:"
+        val dataPath = prop.getProperty("game_data_path") ?: ""
+        val jarPath = prop.getProperty("game_jar_path") ?: ""
+        val jarName = prop.getProperty("game_jar_name") ?: ""
         config.close()
 
         fun templateHandler(templateFileName: String) = { ctx: RoutingContext ->
@@ -94,7 +96,7 @@ class GMVerticle : AbstractVerticle() {
             ctx.request().setExpectMultipart(true).uploadHandler { upload ->
                 if (upload != null) {
                     val fileName = upload.filename() ?: ""
-                    val file = File(gameDataPath + fileName)
+                    val file = File(dataPath + fileName)
                     if (fileName.isNotEmpty() && file.exists()) {
                         file.delete()
                         file.createNewFile()
@@ -130,7 +132,7 @@ class GMVerticle : AbstractVerticle() {
             if (!context.get<Boolean>("running")) {
                 context.put("running", true)
                 ctx.put("running", true)
-                Runtime.getRuntime().exec("cmd /c javaw -jar $gameJarPath")
+                Runtime.getRuntime().exec("cmd /c $driverLetter && cd $jarPath && javaw -jar $jarPath$jarName")
                 ctx.put("result", "start")
                 templateHandler("restart")(ctx)
                 println("game start by ${ctx.request().remoteAddress()}")
@@ -198,12 +200,12 @@ class GMVerticle : AbstractVerticle() {
             timeRoute1.disable()
             timeRoute2.disable()
         }
-        val dataModifiable = if (gameDataPath.isEmpty() || !File(gameDataPath).exists()) {
+        val dataModifiable = if (dataPath.isEmpty() || !File(dataPath).exists()) {
             dataRoute0.disable()
             dataRoute1.disable()
             false
         } else true
-        val restartable = if (gameJarPath.isEmpty() || !File(gameJarPath).exists()) {
+        val restartable = if (jarPath.isEmpty() || jarName.isEmpty() || !File(jarPath + jarName).exists()) {
             restartRoute0.disable()
             restartRoute1.disable()
             restartRoute2.disable()
@@ -220,7 +222,7 @@ class GMVerticle : AbstractVerticle() {
 
         if (timeModifiable || dataModifiable || restartable) {
             vertx.createHttpServer().requestHandler(router::accept).listen(8090)
-            println("listen port: 8090")
+            println("started. listen port: 8090")
         } else {
             vertx.undeploy(GMVerticle::class.java.name)
             println("config.properties error")
