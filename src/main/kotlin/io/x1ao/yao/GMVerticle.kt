@@ -155,7 +155,7 @@ class GMVerticle : AbstractVerticle() {
                 val reader = BufferedReader(InputStreamReader(cmd.inputStream, "gbk"))
                 try {
                     val i = reader.readLines().size
-                    if (i < 5) {
+                    if (i < 4) {
                         context.put("running", false)
                     }
                 } catch (e: Exception) {
@@ -180,7 +180,7 @@ class GMVerticle : AbstractVerticle() {
                         if (i >= 3 && line.isNotEmpty()) {
                             val list = line.split(' ', ignoreCase = true).filter { it.isNotEmpty() }
                             val pid = list[1].toInt()
-                            Runtime.getRuntime().exec("cmd /c taskkill /$pid -t -f")
+                            Runtime.getRuntime().exec("cmd /c taskkill /pid $pid -f")
                             ctx.put("result", "shutdown")
                         }
                         line = reader.readLine()
