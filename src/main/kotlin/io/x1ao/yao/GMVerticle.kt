@@ -155,7 +155,7 @@ class GMVerticle : AbstractVerticle() {
                 val reader = BufferedReader(InputStreamReader(cmd.inputStream, "gbk"))
                 try {
                     val i = reader.readLines().size
-                    if (i <= 3) {
+                    if (i < 5) {
                         context.put("running", false)
                     }
                 } catch (e: Exception) {
