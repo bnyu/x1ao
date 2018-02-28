@@ -1,4 +1,4 @@
-package io.x1ao.yao
+package io.x1ao
 
 import io.vertx.core.Vertx
 
