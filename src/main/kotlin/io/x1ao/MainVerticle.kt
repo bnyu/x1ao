@@ -156,7 +156,7 @@ class MainVerticle : AbstractVerticle() {
                 ctx.put("logged", true)
             templateHandler("index")(ctx)
         }
-        vertx.createHttpServer().requestHandler(router::accept).listen(8080)
+        vertx.createHttpServer().requestHandler(router::accept).listen(80)
     }
 }
 
