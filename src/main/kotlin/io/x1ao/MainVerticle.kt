@@ -3,7 +3,6 @@ package io.x1ao
 import io.vertx.core.AbstractVerticle
 import io.vertx.core.http.HttpHeaders
 import io.vertx.core.json.JsonObject
-import io.vertx.ext.auth.User
 import io.vertx.ext.mongo.MongoClient
 import io.vertx.ext.web.Router
 import io.vertx.ext.web.RoutingContext
@@ -58,9 +57,8 @@ class MainVerticle : AbstractVerticle() {
                 if (!form.isEmpty) {
                     val username = form.get("username") ?: ""
                     val password = form.get("password") ?: ""
-                    val nickname = form.get("nickname") ?: ""
-                    if (username.length >= 4 && password.length >= 8 && nickname.isNotEmpty()) {
-                        val account = JsonObject().put("username", username).put("password", password).put("nickname", nickname)
+                    if (username.length >= 4 && password.length >= 8) {
+                        val account = JsonObject().put("username", username).put("password", password)
                         val future = authProvider.register(account)
                         future.setHandler { res ->
                             if (res.succeeded() && res.result())
@@ -73,13 +71,31 @@ class MainVerticle : AbstractVerticle() {
             }
         }
 
+        router.route("/login").handler(basicAuthHandle)
+        router.route("/login").handler { ctx ->
+            val logged = ctx.user() != null
+            ctx.put("logged", logged)
+            templateHandler("login")(ctx)
+        }
         router.route("/my/*").handler(basicAuthHandle)
 
-        router.get("/my/article").handler(templateHandler("post_article"))
+        router.route("/my").handler { ctx ->
+            val user = ctx.user() ?: return@handler
+            val query = user.principal()
+            client.find("articles", query) { res ->
+                if (res.succeeded()) {
+                    ctx.put("articles", res.result())
+                    templateHandler("articles")(ctx)
+                } else {
+                    ctx.fail(404)
+                }
+            }
+        }
 
-        router.post("/my/article").handler { ctx ->
-            val user: User? = ctx.user()
-            if (user == null) return@handler
+        router.get("/my/post_article").handler(templateHandler("post_article"))
+
+        router.post("/my/post_article").handler { ctx ->
+            val user = ctx.user() ?: return@handler
             val accountInfo = user.principal()
             val request = ctx.request().setExpectMultipart(true)
             request.endHandler {
@@ -90,10 +106,10 @@ class MainVerticle : AbstractVerticle() {
                     if (title.isNotEmpty() && content.isNotEmpty()) {
                         val time = LocalDateTime.now()
                         val articleId = "${time.year % 100 - 8}${time.dayOfYear + 100}${(time.hour + 8) shl 1}${time.minute * 60 + time.second + 1000}${time.nano / 100_000_000}"
-                        val document = JsonObject().put("articleId", articleId).put("author", accountInfo.getValue("username")).put("title", title).put("content", content)
+                        val document = accountInfo.put("articleId", articleId).put("title", title).put("content", content)
                         client.save("articles", document) { res ->
                             if (res.succeeded())
-                                templateHandler("article")(ctx.put("title", title).put("author", accountInfo.getValue("username")).put("content", content))
+                                templateHandler("article")(ctx.put("title", title).put("author", accountInfo.getValue("author")).put("content", content))
                             else ctx.fail(404)
                         }
                     } else ctx.fail(400)
@@ -122,8 +138,8 @@ class MainVerticle : AbstractVerticle() {
             }
         }
 
+        val query = JsonObject()
         router.get("/articles").handler { ctx ->
-            val query = JsonObject()
             client.find("articles", query) { res ->
                 if (res.succeeded()) {
                     ctx.put("articles", res.result())

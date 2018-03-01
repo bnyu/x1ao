@@ -7,14 +7,13 @@ import io.vertx.ext.auth.AbstractUser
 import io.vertx.ext.auth.AuthProvider
 
 class Account(private val username: String) : AbstractUser() {
-    var nickname = username
 
     override fun setAuthProvider(authProvider: AuthProvider) {
 
     }
 
     override fun principal(): JsonObject {
-        return JsonObject().put("username", username).put("nickname", nickname)
+        return JsonObject().put("author", username)
     }
 
     override fun doIsPermitted(permission: String, resultHandler: Handler<AsyncResult<Boolean>>) {

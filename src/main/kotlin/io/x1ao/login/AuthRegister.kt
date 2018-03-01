@@ -17,9 +17,7 @@ class AuthRegister(private val client: MongoClient) : AuthProvider {
         if (username.isNotEmpty() && password.isNotEmpty()) {
             client.findOne("accounts", JsonObject().put("username", username), field) { res ->
                 if (res.succeeded() && res.result()?.getString("password") == password) {
-                    val account = Account(username)
-                    account.nickname = res.result().getString("nickname")
-                    resultHandler.handle(Future.succeededFuture(account))
+                    resultHandler.handle(Future.succeededFuture(Account(username)))
                 } else resultHandler.handle(Future.failedFuture("username or password is not correct!"))
             }
         } else resultHandler.handle(Future.failedFuture("!!"))
@@ -28,14 +26,12 @@ class AuthRegister(private val client: MongoClient) : AuthProvider {
     fun register(userInfo: JsonObject): Future<Boolean> {
         val username = userInfo.getString("username")?.toLowerCase() ?: ""
         val password = userInfo.getString("password") ?: ""
-        val nickname = userInfo.getString("nickname") ?: ""
         return if (username.length in 4..12 && password.length in 8..18) {
             Future.future<Boolean> { fut ->
                 val account = JsonObject().put("username", username)
                 client.findOne("accounts", account, field) { res ->
                     if (res.succeeded() && res.result() == null) {
-                        client.save("accounts", account.put("password", password)
-                            .put("nickname", if (nickname.isEmpty()) username else nickname)) { res1 ->
+                        client.save("accounts", account.put("password", password)) { res1 ->
                             fut.complete(res1.succeeded())
                         }
                     } else fut.fail("username has been registered")

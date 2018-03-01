@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <title>Login</title>
+</head>
+<body>
+@if{context.get("logged")}
+登陆成功
+@else{}
+登陆失败
+@end{}
+<br><a href="/">返回</a>
+</body>
+</html>
