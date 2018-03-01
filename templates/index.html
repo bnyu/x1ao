@@ -5,8 +5,11 @@
     <title></title>
 </head>
 <body>
-<a href="/articles">浏览</a>
+@if{context.get("logged") != true}
 <a href="/register">注册</a>
+@else{}
 <a href="/my/article">发布</a>
+@end{}
+<a href="/articles">浏览</a>
 </body>
 </html>

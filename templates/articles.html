@@ -6,7 +6,7 @@
 </head>
 <body>
 @foreach{article : context.get("articles")}
-<a href=/@{article.getString("author")}/@{article.getString("articleId")}>@{article.getString("title")}</a>
+<a href=/author/@{article.getString("author")}/@{article.getString("articleId")}>@{article.getString("title")}</a>
 <br>
 @end{}
 </body>

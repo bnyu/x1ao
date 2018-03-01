@@ -46,7 +46,7 @@ class MainVerticle : AbstractVerticle() {
             if (ctx.user() == null)
                 templateHandler("register")(ctx)
             else
-                templateHandler("index")(ctx)
+                ctx.reroute("/")
         }
 
         router.post("/register").handler { ctx ->
@@ -61,8 +61,13 @@ class MainVerticle : AbstractVerticle() {
                     val nickname = form.get("nickname") ?: ""
                     if (username.length >= 4 && password.length >= 8 && nickname.isNotEmpty()) {
                         val account = JsonObject().put("username", username).put("password", password).put("nickname", nickname)
-                        authProvider.register(account)
-                        templateHandler("index")(ctx)
+                        val future = authProvider.register(account)
+                        future.setHandler { res ->
+                            if (res.succeeded() && res.result())
+                                templateHandler("index")(ctx.put("logged", true))
+                            else
+                                ctx.fail(401)
+                        }
                     } else ctx.fail(400)
                 } else ctx.fail(400)
             }
@@ -88,7 +93,7 @@ class MainVerticle : AbstractVerticle() {
                         val document = JsonObject().put("articleId", articleId).put("author", accountInfo.getValue("username")).put("title", title).put("content", content)
                         client.save("articles", document) { res ->
                             if (res.succeeded())
-                                templateHandler("article")(ctx.put("title", title).put("content", content))
+                                templateHandler("article")(ctx.put("title", title).put("author", accountInfo.getValue("username")).put("content", content))
                             else ctx.fail(404)
                         }
                     } else ctx.fail(400)
@@ -96,7 +101,7 @@ class MainVerticle : AbstractVerticle() {
             }
         }
 
-        router.get("/:author/:articleId").handler { ctx ->
+        router.get("/author/:author/:articleId").handler { ctx ->
             val author = ctx.request().getParam("author")
             val articleId = ctx.request().getParam("articleId")
             val query = JsonObject().put("articleId", articleId).put("author", author)
@@ -130,7 +135,11 @@ class MainVerticle : AbstractVerticle() {
         }
 
         router.route("/favicon.ico").handler(FaviconHandler.create("resource/favicon.ico"))
-        router.route("/").handler(templateHandler("index"))
+        router.route("/").handler { ctx ->
+            if (ctx.user() != null)
+                ctx.put("logged", true)
+            templateHandler("index")(ctx)
+        }
         vertx.createHttpServer().requestHandler(router::accept).listen(8080)
     }
 }

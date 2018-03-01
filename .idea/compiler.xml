@@ -2,8 +2,8 @@
 <project version="4">
   <component name="CompilerConfiguration">
     <bytecodeTargetLevel>
-      <module name="yao_main" target="1.8" />
-      <module name="yao_test" target="1.8" />
+      <module name="x1ao_main" target="1.8" />
+      <module name="x1ao_test" target="1.8" />
     </bytecodeTargetLevel>
   </component>
 </project>
